@@ -2,12 +2,12 @@
 (use Array)
 
 (defmodule Cell
-  (deftype (Cell a) (Cell [content (Maybe a), neighbors (Array Cell)]))
+  (deftype (Cell a) (Cell [content (Maybe a), propagators (Array (Fn [a] b))]))
   
   (deftype Message 
     Content
     Add-Content
-    Add-Neighbor)
+    Add-Propagator)
   
   (private add-content)
   (defn add-content [cell increment]
@@ -16,17 +16,17 @@
         (Nothing) (Nothing)
         (Just x) (if (nothing? cell-val) 
                      (do (Cell.update-content cell (Just x)) 
-                         (alert-propagators (Cell.neighbors cell))) 
+                         (alert-propagators (Cell.propagators cell))) 
                      (if (not equal? cell-val increment) ;; need to implement equal-function.
                          (Error "Inconsistent")))))) 
 
-  (private add-neighbor)
-  (defn add-neighbor [cell neighbor] 
-    (let [neighbors (Cell.neighbors cell)] 
-    (match (index-of neighbors neighbor) 
-        (Nothing) (do ((Cell.update-neighbors cell (push-back neighbors
-        neighbor)))
-                      (alert-propagator neighbor))
+  (private add-propagator)
+  (defn add-propagator [cell propagator] 
+    (let [props (Cell.propagators cell)] 
+    (match (index-of props propagator) 
+        (Nothing) (do ((Cell.update-propagators cell (push-back props
+        propagator)))
+                      (alert-propagator propagator))
         (Just _)))) ;;do nothing?
 
   (defn make-cell [] 
@@ -35,5 +35,5 @@
       (match message 
         (Content) (Cell.content cell)
         (Add-Content) (fn [x] (add-content cell x))
-        (Add-Neighbor) (fn [x] (add-neighbor cell x))))))
+        (Add-Propagator) (fn [x] (add-propagator cell x))))))
 )

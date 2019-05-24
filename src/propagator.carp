@@ -1,0 +1,7 @@
+(use Cell)
+(defmodule Propagator
+  (defn defpropagator [cell f] 
+    (for [i 0 (length (Cell.propagators cell))] 
+      add-propagator cell f)
+    (alert-propagator f)) 
+)
