@@ -1,0 +1,39 @@
+(use Maybe)
+(use Array)
+
+(defmodule Cell
+  (deftype (Cell a) (Cell [content (Maybe a), neighbors (Array Cell)]))
+  
+  (deftype Message 
+    Content
+    Add-Content
+    Add-Neighbor)
+  
+  (private add-content)
+  (defn add-content [cell increment]
+    (let [cell-val (Cell.content cell)]
+      (match increment
+        (Nothing) (Nothing)
+        (Just x) (if (nothing? cell-val) 
+                     (do (Cell.update-content cell (Just x)) 
+                         (alert-propagators (Cell.neighbors cell))) 
+                     (if (not equal? cell-val increment) ;; need to implement equal-function.
+                         (Error "Inconsistent")))))) 
+
+  (private add-neighbor)
+  (defn add-neighbor [cell neighbor] 
+    (let [neighbors (Cell.neighbors cell)] 
+    (match (index-of neighbors neighbor) 
+        (Nothing) (do ((Cell.update-neighbors cell (push-back neighbors
+        neighbor)))
+                      (alert-propagator neighbor))
+        (Just _)))) ;;do nothing?
+
+  (defn make-cell [] 
+    (let [cell (Cell.init Nothing zero)]
+    (fn [message] 
+      (match message 
+        (Content) (Cell.content cell)
+        (Add-Content) (fn [x] (add-content cell x))
+        (Add-Neighbor) (fn [x] (add-neighbor cell x))))))
+)
