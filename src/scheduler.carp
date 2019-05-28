@@ -8,40 +8,91 @@
 
 (defmodule Scheduler
 
-  (deftype State Done )
+  (deftype (State a) 
+    Done 
+    (Value a))
 
-  (def alerted-propagators (zero))
+  (def (the (Array (Fn [a] t)) scheduled-propagators) (zero))
   ;; all propagators ever scheduled during the scheduler's lifetime.
-  (def history (zero)) 
-  (def abort-process false)
+  (def (the (Array (Fn [a] t)) history) (zero)) 
   (def last-value-of-run State.Done)
+  
+  (private propagators-scheduled?)
+  (doc propagators-scheduled? "Returns true if any propagators have been alerted.")
+  (defn propagators-scheduled? [] 
+    (> (length scheduled-propagators) 0))
 
-  (defn start-scheduler [] 
-    (do (clear-alerted-propagators)
-        (clear-history)))
-
-  (defn any-propagators-alerted? [] 
-    (> 0 (length alerted-propagators)))
-
-  (defn clear-alerted-propagators []
-    (set! alerted-propagators (zero)))
-
+  (private clear-schedule)
+  (doc clear-schedule "Reset the list of scheduled propagators.")
+  (defn clear-schedule []
+    (set! scheduled-propagators (zero)))
+  
+  (private clear-history)
+  (doc clear-history "Reset the scheduler's history.")
   (defn clear-history []
     (set! all-propagators (zero)))
 
-  (defn order-preserving-insert [propagator-map propagator]
-    (match (get-maybe propagator-map propagator)
-      (Nothing) (do (put! propagator-map propagator true)
-                    (push-back! ordered-jobs propagator)) 
+  (private insert)
+  (doc insert "Add a propagator to an array of propagators. 
+  If the propagator is already a member of the array, do nothing.")
+  (sig insert (Fn [(Array (Fn [a] t)) (Fn [a] t)] ()))
+  (defn insert [propagators propagator]
+    (match (index-of propagators propagator)
+      (Nothing) (push-back! propagators propagator) 
       (Just x) ()))
 
-  (defn ordered-key-list [propagator-map job-list] 
-    (if reproducible-run-order 
-        (suffix-array ordered-jobs 1) 
-        (keys propagator-map)))  
+  (private run-alerted)
+  (doc run-alerted "Run all of the alterted propagators.")
+  (sig run-alerted (Fn [] (State a)))
+  (defn run-alerted [] 
+    (let [jobs scheduled-propagators] 
+      (do 
+        (clear-schedule)
+        (foreach [propagator jobs]
+          (propagator))
+        (if (propagators-scheduled?)
+            (run-alerted)
+            (State.Done)))))
 
-  (defn alert-propagators [propagators] 
-    (do (foreach [propagator propagators] 
-          (order-preserving-insert alerted-propagators (the Fn propagator))
-          (order-preserving-insert past-alerted-propagators past-jobs))))
+  ;;;; TODO: Implement an abortion mechanism.
+
+  (doc schedule 
+    "Add one or more propagators to the scheduler's array of propagators.
+     Also adds the propagators to the scheduler's history.")
+  (definterface schedule (Fn [a] ()))
+  
+  (defmodule Array
+    (sig schedule (Fn [(Array (Fn [a] t))] ()))
+    (defn schedule [propagators] 
+      (foreach [propagator propagators] 
+        (insert scheduled-propagators propagator)
+        (insert history propagator)))
+  ) 
+  
+  (defmodule Function
+    (sig schedule (Fn [(Fn [a] t)] ()))
+    (defn schedule [propagator] 
+    (do (insert scheduled-propagators propagator) 
+        (insert history propagator))) 
+  )  
+
+  (doc reschedule
+    "Reschedule all the propagators in the scheduler's history.")
+  (sig reschedule (Fn [] ()))
+  (defn reschedule []
+    (schedule history))
+
+  (doc start "Initialize the scheduler.")
+  (sig start (Fn [] ()))
+  (defn start [] 
+    (do (clear-schedule)
+        (clear-history)
+        (set! last-value-of-run (State.Done))))
+
+  (doc run-scheduler "Run the scheduler.")
+  (sig run-scheduler (Fn [] (State a)))
+  (defn run-scheduler [] 
+    (do (if (propagators-alerted?) 
+            (set! last-value-of-run (run-alerted)))
+      last-value-of-run))
 )

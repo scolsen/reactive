@@ -1,10 +1,11 @@
 (use Cell)
 (use Array)
+(load "Macros.carp")
+
 (defmodule Propagator
  
-  (definterface defpropagator (Fn [Cell a] ()))
-
   (hidden defpropagator-internal)
+  (private defpropagator-internal)
   (doc defpropagator-internal "Define a propagator and add it to a cell.")
   (sig defpropagator-internal (Fn [Cell a] ())) ;; should we return the cell here?
   (defn defpropagator-internal [cell propagator] 
@@ -13,14 +14,27 @@
         (add-propagator existing-prop  propagator))
       (alert-propagator propagator))) 
 
-  (defmodule Function 
-    (sig defpropagator (Fn [Cell (Fn [a] a)] (Fn [(Array a)] ())))
-    (defn defpropagator [cell f]
-      (fn [cells] 
-        (let [output (last cells) 
-              inputs (prefix-array cells (- (length &cells) 1))]
-          defpropagator-internal inputs 
-          ;; endomap or copymap here?
-          (fn [] (add-content output (f (endo-map Cell.content inputs))))))) 
-  )
+  (defndynamic apply-with-internal [f a acc]
+    (do (foreach [x a] 
+          (cons x acc))
+      (cons f acc)))
+
+  (defmacro apply-with [f a] 
+    (apply-with-internal f a (list)))
+
+  (defmacro defpropagator [f]
+    (fn [cells] 
+      (let [output (last cells)
+            inputs (prefix-array cells (- (length &cells) 1))]
+        (defpropagator-internal inputs)
+        (fn [] (add-content output (f (endo-map Cell.content inputs)))))))
+
+  (sig defpropagator (Fn [(Cell (Fn [a] t) t)] (Fn [(Cell a t)] ())))
+  (defn defpropagator [cell f]
+    (fn [cells] 
+      (let [output (last cells) 
+            inputs (prefix-array cells (- (length &cells) 1))]
+        defpropagator-internal inputs 
+        ;; endomap or copymap here?
+        (fn [] (add-content output (f (endo-map Cell.content inputs))))))) 
 )

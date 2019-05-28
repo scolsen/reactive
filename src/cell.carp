@@ -1,5 +1,6 @@
 (use Maybe)
 (use Array)
+(load "scheduler.carp")
 
 (defmodule Cell
   (deftype (Cell a t) [content (Maybe a), propagators (Array (Fn [a] t))])
@@ -25,7 +26,7 @@
         (Nothing) (Nothing)
         (Just x) (if (nothing? cell-val) 
                      (do (Cell.update-content cell (Just x)) 
-                         (alert-propagators (Cell.propagators cell))) 
+                         (Scheduler.schedule (Cell.propagators cell))) 
                      (assert (= cell-val increment)))))) 
   
   (doc "Add a propagator to a cell.")
@@ -35,7 +36,7 @@
     (match (index-of props propagator) 
         (Nothing) 
           (do (Cell.update-propagators cell (push-back props propagator))
-              (alert-propagator propagator))
+              (Scheduler.schedule propagator))
         (Just x) ())))
 
   (doc make-cell "Make a cell of a particular type.")
