@@ -2,14 +2,23 @@
 (use Array)
 
 (defmodule Cell
-  (deftype (Cell a) (Cell [content (Maybe a), propagators (Array (Fn [a] b))]))
+  (deftype (Cell a t) [content (Maybe a), propagators (Array (Fn [a] t))])
   
-  (deftype Message 
-    Content
-    Add-Content
-    Add-Propagator)
+  ;(deftype Message 
+  ;  Content
+  ;  Add-Content
+  ;  Add-Propagator)
   
-  (private add-content)
+  (sig content (Fn [(Ref (Cell a t))] (Maybe a)))
+  (defn content [cell]
+    @(Cell.content cell))
+
+  (sig propagators (Fn [(Ref (Cell a t))] (Array b)))
+  (defn propagators [cell]
+    @(Cell.propagators cell))
+
+  (doc add-content "Update a Cell's contents.")
+  (sig add-content (Fn [(Ref (Cell a t)) a] ()))
   (defn add-content [cell increment]
     (let [cell-val (Cell.content cell)]
       (match increment
@@ -17,23 +26,28 @@
         (Just x) (if (nothing? cell-val) 
                      (do (Cell.update-content cell (Just x)) 
                          (alert-propagators (Cell.propagators cell))) 
-                     (if (not equal? cell-val increment) ;; need to implement equal-function.
-                         (Error "Inconsistent")))))) 
-
-  (private add-propagator)
+                     (assert (= cell-val increment)))))) 
+  
+  (doc "Add a propagator to a cell.")
+  (sig add-propagator (Fn [(Ref (Cell a t)) b] ()))
   (defn add-propagator [cell propagator] 
     (let [props (Cell.propagators cell)] 
     (match (index-of props propagator) 
-        (Nothing) (do ((Cell.update-propagators cell (push-back props
-        propagator)))
-                      (alert-propagator propagator))
-        (Just _)))) ;;do nothing?
+        (Nothing) 
+          (do (Cell.update-propagators cell (push-back props propagator))
+              (alert-propagator propagator))
+        (Just x) ())))
 
-  (defn make-cell [] 
-    (let [cell (Cell.init Nothing zero)]
-    (fn [message] 
-      (match message 
-        (Content) (Cell.content cell)
-        (Add-Content) (fn [x] (add-content cell x))
-        (Add-Propagator) (fn [x] (add-propagator cell x))))))
+  (doc make-cell "Make a cell of a particular type.")
+  (defmacro make-cell [a t] 
+    (list 'the (list 'Cell a t) (list 'Cell.init 'Nothing 'zero))) 
+
+  ;(defn make-cell [] (Cell.init Nothing zero))
+  ;(defn make-cell [] 
+  ;  (let [cell (Cell.init Nothing zero)]
+  ;  (fn [message] 
+  ;    (match message 
+  ;      (Content) (Cell.content cell)
+  ;      (Add-Content) (fn [x] (add-content cell x))
+  ;      (Add-Propagator) (fn [x] (add-propagator cell x))))))
 )

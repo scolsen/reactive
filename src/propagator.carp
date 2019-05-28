@@ -1,7 +1,26 @@
 (use Cell)
+(use Array)
 (defmodule Propagator
-  (defn defpropagator [cell f] 
-    (for [i 0 (length (Cell.propagators cell))] 
-      add-propagator cell f)
-    (alert-propagator f)) 
+ 
+  (definterface defpropagator (Fn [Cell a] ()))
+
+  (hidden defpropagator-internal)
+  (doc defpropagator-internal "Define a propagator and add it to a cell.")
+  (sig defpropagator-internal (Fn [Cell a] ())) ;; should we return the cell here?
+  (defn defpropagator-internal [cell propagator] 
+    (do 
+      (foreach [existing-prop (Cell.propagators cell)]
+        (add-propagator existing-prop  propagator))
+      (alert-propagator propagator))) 
+
+  (defmodule Function 
+    (sig defpropagator (Fn [Cell (Fn [a] a)] (Fn [(Array a)] ())))
+    (defn defpropagator [cell f]
+      (fn [cells] 
+        (let [output (last cells) 
+              inputs (prefix-array cells (- (length &cells) 1))]
+          defpropagator-internal inputs 
+          ;; endomap or copymap here?
+          (fn [] (add-content output (f (endo-map Cell.content inputs))))))) 
+  )
 )
