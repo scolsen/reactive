@@ -1,40 +1,30 @@
 (use Cell)
 (use Array)
-(load "Macros.carp")
+(load-and-use "Macros.carp")
 
 (defmodule Propagator
- 
+
+  ;;; Propagator :: (Fn [a] t)
+
   (hidden defpropagator-internal)
   (private defpropagator-internal)
-  (doc defpropagator-internal "Define a propagator and add it to a cell.")
-  (sig defpropagator-internal (Fn [Cell a] ())) ;; should we return the cell here?
-  (defn defpropagator-internal [cell propagator] 
+  (doc defpropagator-internal "Add a propagator to an array of cells. The
+  propagator is scheduled After it has been added to each cell")
+  ;; should we return the cell here?
+  (sig defpropagator-internal (Fn [(Array (Cell a t))] ()))
+  (defn defpropagator-internal [cells propagator] 
     (do 
-      (foreach [existing-prop (Cell.propagators cell)]
-        (add-propagator existing-prop  propagator))
-      (alert-propagator propagator))) 
+      (foreach [cell cells]
+        (add-propagator cell propagator))
+      (Scheduler.schedule propagator))) 
 
-  (defndynamic apply-with-internal [f a acc]
-    (do (foreach [x a] 
-          (cons x acc))
-      (cons f acc)))
-
-  (defmacro apply-with [f a] 
-    (apply-with-internal f a (list)))
-
-  (defmacro defpropagator [f]
-    (fn [cells] 
-      (let [output (last cells)
-            inputs (prefix-array cells (- (length &cells) 1))]
-        (defpropagator-internal inputs)
-        (fn [] (add-content output (f (endo-map Cell.content inputs)))))))
-
-  (sig defpropagator (Fn [(Cell (Fn [a] t) t)] (Fn [(Cell a t)] ())))
-  (defn defpropagator [cell f]
-    (fn [cells] 
-      (let [output (last cells) 
-            inputs (prefix-array cells (- (length &cells) 1))]
-        defpropagator-internal inputs 
-        ;; endomap or copymap here?
-        (fn [] (add-content output (f (endo-map Cell.content inputs))))))) 
+  (defmacro defpropagator [name f]
+    (defmacro name [:rest cells]
+      (list 'fn (array)
+        (list 'let-do (array 'output (last cells)
+                             'inputs (all-but-last cells))
+        (list 'defpropagator-internal 'inputs
+          (list 'fn (array) 
+            (list 'add-content 'output 
+              (build-vararg f (list 'endo-map 'Cell.content 'inputs)))))))))
 )

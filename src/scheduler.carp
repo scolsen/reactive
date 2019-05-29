@@ -1,5 +1,5 @@
-(use Map)
 (use Array)
+(use Maybe)
 
 ;;;; The following differs from Rudal's implementation in that we don't bother
 ;;;; with a map. Even though run order should not matter, for now I'm assuming
@@ -10,17 +10,18 @@
 
   (deftype (State a) 
     Done 
-    (Value a))
+    (Value [a]))
 
-  (def (the (Array (Fn [a] t)) scheduled-propagators) (zero))
+  (def scheduled-propagators (the (Array (Fn [] ())) (zero)))
   ;; all propagators ever scheduled during the scheduler's lifetime.
-  (def (the (Array (Fn [a] t)) history) (zero)) 
+  (def history (the (Array (Fn [] ())) (zero))) 
   (def last-value-of-run State.Done)
   
   (private propagators-scheduled?)
   (doc propagators-scheduled? "Returns true if any propagators have been alerted.")
+  (sig propagators-scheduled? (Fn [] Bool))
   (defn propagators-scheduled? [] 
-    (> (length scheduled-propagators) 0))
+    (> (length &scheduled-propagators) 0))
 
   (private clear-schedule)
   (doc clear-schedule "Reset the list of scheduled propagators.")
@@ -30,29 +31,28 @@
   (private clear-history)
   (doc clear-history "Reset the scheduler's history.")
   (defn clear-history []
-    (set! all-propagators (zero)))
+    (set! history (zero)))
 
   (private insert)
   (doc insert "Add a propagator to an array of propagators. 
   If the propagator is already a member of the array, do nothing.")
-  (sig insert (Fn [(Array (Fn [a] t)) (Fn [a] t)] ()))
+  (sig insert (Fn [(Ref (Array (Fn [] ()))) (Ref (Fn [] ()))] ()))
   (defn insert [propagators propagator]
-    (match (index-of propagators propagator)
-      (Nothing) (push-back! propagators propagator) 
+    (match (Array.index-of propagators propagator)
+      (Nothing) (push-back! propagators @propagator) 
       (Just x) ()))
 
   (private run-alerted)
   (doc run-alerted "Run all of the alterted propagators.")
   (sig run-alerted (Fn [] (State a)))
   (defn run-alerted [] 
-    (let [jobs scheduled-propagators] 
       (do 
         (clear-schedule)
-        (foreach [propagator jobs]
-          (propagator))
+        (foreach [propagator &scheduled-propagators]
+          (~propagator))
         (if (propagators-scheduled?)
             (run-alerted)
-            (State.Done)))))
+            (State.Done))))
 
   ;;;; TODO: Implement an abortion mechanism.
 
@@ -62,18 +62,18 @@
   (definterface schedule (Fn [a] ()))
   
   (defmodule Array
-    (sig schedule (Fn [(Array (Fn [a] t))] ()))
+    (sig schedule (Fn [(Array (Fn [] t))] ()))
     (defn schedule [propagators] 
-      (foreach [propagator propagators] 
-        (insert scheduled-propagators propagator)
-        (insert history propagator)))
+      (foreach [propagator &propagators] 
+        (insert &scheduled-propagators &propagator)
+        (insert &history &propagator)))
   ) 
   
   (defmodule Function
-    (sig schedule (Fn [(Fn [a] t)] ()))
+    (sig schedule (Fn [(Fn [] t)] ()))
     (defn schedule [propagator] 
-    (do (insert scheduled-propagators propagator) 
-        (insert history propagator))) 
+    (do (insert &scheduled-propagators &propagator) 
+        (insert &history &propagator))) 
   )  
 
   (doc reschedule

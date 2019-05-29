@@ -3,34 +3,32 @@
 (load "scheduler.carp")
 
 (defmodule Cell
-  (deftype (Cell a t) [content (Maybe a), propagators (Array (Fn [a] t))])
   
-  ;(deftype Message 
-  ;  Content
-  ;  Add-Content
-  ;  Add-Propagator)
+  (deftype (Cell a t) 
+    [content (Maybe a), 
+     propagators (Array (Fn [a] t))])
   
   (sig content (Fn [(Ref (Cell a t))] (Maybe a)))
   (defn content [cell]
     @(Cell.content cell))
 
-  (sig propagators (Fn [(Ref (Cell a t))] (Array b)))
+  (sig propagators (Fn [(Ref (Cell a t))] (Array (Fn [a] t))))
   (defn propagators [cell]
     @(Cell.propagators cell))
 
   (doc add-content "Update a Cell's contents.")
-  (sig add-content (Fn [(Ref (Cell a t)) a] ()))
+  (sig add-content (Fn [(Ref (Cell a t)) (Maybe a)] ()))
   (defn add-content [cell increment]
     (let [cell-val (Cell.content cell)]
       (match increment
-        (Nothing) (Nothing)
+        (Nothing) ()
         (Just x) (if (nothing? cell-val) 
                      (do (Cell.update-content cell (Just x)) 
                          (Scheduler.schedule (Cell.propagators cell))) 
                      (assert (= cell-val increment)))))) 
   
   (doc "Add a propagator to a cell.")
-  (sig add-propagator (Fn [(Ref (Cell a t)) b] ()))
+  (sig add-propagator (Fn [(Ref (Cell a t)) (Fn [a] t)] ()))
   (defn add-propagator [cell propagator] 
     (let [props (Cell.propagators cell)] 
     (match (index-of props propagator) 
@@ -42,13 +40,4 @@
   (doc make-cell "Make a cell of a particular type.")
   (defmacro make-cell [a t] 
     (list 'the (list 'Cell a t) (list 'Cell.init 'Nothing 'zero))) 
-
-  ;(defn make-cell [] (Cell.init Nothing zero))
-  ;(defn make-cell [] 
-  ;  (let [cell (Cell.init Nothing zero)]
-  ;  (fn [message] 
-  ;    (match message 
-  ;      (Content) (Cell.content cell)
-  ;      (Add-Content) (fn [x] (add-content cell x))
-  ;      (Add-Propagator) (fn [x] (add-propagator cell x))))))
 )
