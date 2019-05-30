@@ -1,3 +1,5 @@
+(load "src/types.carp")
+(use Types)
 (use Maybe)
 (use Array)
 (load "scheduler.carp")

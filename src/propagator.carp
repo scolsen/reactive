@@ -1,6 +1,9 @@
+(load "src/types.carp")
+(load "src/cell.carp")
 (use Cell)
+(use Types)
 (use Array)
-(load-and-use "Macros.carp")
+(load "Macros.carp")
 
 (defmodule Propagator
 
@@ -16,15 +19,17 @@
     (do 
       (foreach [cell cells]
         (add-propagator cell propagator))
-      (Scheduler.schedule propagator))) 
+      (Scheduler.schedule-propagator propagator)))
 
   (defmacro defpropagator [name f]
     (defmacro name [:rest cells]
-      (list 'fn (array)
-        (list 'let-do (array 'output (last cells)
-                             'inputs (all-but-last cells))
-        (list 'defpropagator-internal 'inputs
-          (list 'fn (array) 
-            (list 'add-content 'output 
-              (build-vararg f (list 'endo-map 'Cell.content 'inputs)))))))))
+      (list 'Propagator.Propagator (list 'copy name)
+        (list 'fn (array)
+          (list 'let-do (array 'output (last cells)
+                               'inputs (all-but-last cells))
+          (list 'defpropagator-internal 'inputs
+            (list 'fn (array) 
+              (list 'add-content 'output 
+                (build-vararg f (list 'endo-map 'Cell.content
+                'inputs))))))))))
 )

@@ -1,0 +1,10 @@
+(defmodule Types
+  (deftype Propagator 
+           (Propagator [String (Fn [] ())])
+           (Nil [])) ;; TODO: Remove this unused constructor once #463 is merged
+
+(deftype (Cell a t) 
+    [content (Maybe a), 
+     propagators (Array (Fn [a] t))])
+
+)

@@ -1,3 +1,5 @@
+(load "src/types.carp")
+(use Types)
 (use Array)
 (use Maybe)
 
@@ -9,12 +11,12 @@
 (defmodule Scheduler
 
   (deftype (State a) 
-    Done 
+    (Done [])
     (Value [a]))
 
-  (def scheduled-propagators (the (Array (Fn [] ())) (zero)))
+  (def scheduled-propagators (the (Array Propagator) (zero)))
   ;; all propagators ever scheduled during the scheduler's lifetime.
-  (def history (the (Array (Fn [] ())) (zero))) 
+  (def history (the (Array Propagator) (zero))) 
   (def last-value-of-run State.Done)
   
   (private propagators-scheduled?)
@@ -36,11 +38,19 @@
   (private insert)
   (doc insert "Add a propagator to an array of propagators. 
   If the propagator is already a member of the array, do nothing.")
-  (sig insert (Fn [(Ref (Array (Fn [] ()))) (Ref (Fn [] ()))] ()))
+  (sig insert (Fn [(Ref (Array Propagator)) (Ref Propagator)] ()))
   (defn insert [propagators propagator]
-    (match (Array.index-of propagators propagator)
-      (Nothing) (push-back! propagators @propagator) 
-      (Just x) ()))
+   (let [names 
+          (copy-map 
+          &(fn [x] (match @x 
+                    (Propagator.Propagator name _) name
+                    (Propagator.Nil) @"")) propagators)]  
+    (match @propagator 
+            (Propagator.Propagator name _) 
+              (match (Array.index-of &names &name)
+                (Nothing) (push-back! propagators @propagator) 
+                (Just x) ())
+            (Propagator.Nil) ())))
 
   (private run-alerted)
   (doc run-alerted "Run all of the alterted propagators.")
@@ -55,32 +65,29 @@
             (State.Done))))
 
   ;;;; TODO: Implement an abortion mechanism.
-
-  (doc schedule 
-    "Add one or more propagators to the scheduler's array of propagators.
-     Also adds the propagators to the scheduler's history.")
-  (definterface schedule (Fn [a] ()))
   
-  (defmodule Array
-    (sig schedule (Fn [(Array (Fn [] t))] ()))
-    (defn schedule [propagators] 
-      (foreach [propagator &propagators] 
-        (insert &scheduled-propagators &propagator)
-        (insert &history &propagator)))
-  ) 
+  (doc schedule-propagators 
+    "Add propagators to the scheduler's array of propagators.
+     Also adds the propagators to the scheduler's history.")  
+  (sig schedule-propagators (Fn [(Array Propagator)] ()))
+  (defn schedule-propagators [propagators] 
+    (foreach [propagator &propagators] 
+      (do (insert &scheduled-propagators &propagator)
+          (insert &history &propagator))))
   
-  (defmodule Function
-    (sig schedule (Fn [(Fn [] t)] ()))
-    (defn schedule [propagator] 
+  (doc schedule-propagator 
+    "Add a single propagator to the scheduler's array of propagators.
+     Also adds the propagator to the scheduler's history.")  
+  (sig schedule-propagator (Fn [Propagator] ()))
+    (defn schedule-propagator [propagator] 
     (do (insert &scheduled-propagators &propagator) 
-        (insert &history &propagator))) 
-  )  
-
+        (insert &history &propagator)))
+  
   (doc reschedule
     "Reschedule all the propagators in the scheduler's history.")
   (sig reschedule (Fn [] ()))
   (defn reschedule []
-    (schedule history))
+    (Array.schedule history))
 
   (doc start "Initialize the scheduler.")
   (sig start (Fn [] ()))
