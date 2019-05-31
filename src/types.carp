@@ -2,9 +2,16 @@
   (deftype Propagator 
            (Propagator [String (Fn [] ())])
            (Nil [])) ;; TODO: Remove this unused constructor once #463 is merged
+ 
+  (doc propagator-name "Get the name of a propagator. If the propagator is nil,
+  returns the empty string.")
+  (sig propagator-name (Fn [(Ref Propagator)] String))
+  (defn propagator-name [p] 
+    (match @p
+      (Propagator.Propagator name _) name
+      (Propagator.Nil) @""))
 
-(deftype (Cell a t) 
+  (deftype (Cell a t) 
     [content (Maybe a), 
-     propagators (Array (Fn [a] t))])
-
+     propagators (Array Propagator)])
 )

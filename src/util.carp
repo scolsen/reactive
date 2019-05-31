@@ -1,0 +1,12 @@
+(use Maybe)
+(defmodule Array
+  (defmodule Reactive-Util
+    (doc member? "Checks if an element is a member of an Array and returns a
+    boolean indicating membership.")
+    (sig member? (Fn [(Ref (Array a)) (Ref a)] Bool))
+    (defn member? [xs x]
+      (match (Array.index-of xs x)
+        (Maybe.Nothing) false
+        (Maybe.Just _) true))
+  )
+)

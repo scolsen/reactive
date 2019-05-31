@@ -1,4 +1,5 @@
 (load "src/types.carp")
+(load "src/util.carp")
 (use Types)
 (use Array)
 (use Maybe)
@@ -40,17 +41,12 @@
   If the propagator is already a member of the array, do nothing.")
   (sig insert (Fn [(Ref (Array Propagator)) (Ref Propagator)] ()))
   (defn insert [propagators propagator]
-   (let [names 
-          (copy-map 
-          &(fn [x] (match @x 
-                    (Propagator.Propagator name _) name
-                    (Propagator.Nil) @"")) propagators)]  
+   (let [names (copy-map &propagator-name propagators)]  
     (match @propagator 
-            (Propagator.Propagator name _) 
-              (match (Array.index-of &names &name)
-                (Nothing) (push-back! propagators @propagator) 
-                (Just x) ())
-            (Propagator.Nil) ())))
+      (Propagator.Propagator name _) 
+        (when (Reactive-Util.member? &names &name) 
+              (push-back! propagators @propagator))       
+      (Propagator.Nil) ())))
 
   (private run-alerted)
   (doc run-alerted "Run all of the alterted propagators.")
@@ -59,47 +55,52 @@
       (do 
         (clear-schedule)
         (foreach [propagator &scheduled-propagators]
-          (~propagator))
+          (do 
+            (ignore (match @propagator 
+              (Propagator.Propagator _ f) (f)
+              (Propagator.Nil) ()))
+            (set! scheduled-propagators (remove propagator
+            scheduled-propagators))))
         (if (propagators-scheduled?)
             (run-alerted)
-            (State.Done))))
+            State.Done)))
 
   ;;;; TODO: Implement an abortion mechanism.
   
   (doc schedule-propagators 
     "Add propagators to the scheduler's array of propagators.
      Also adds the propagators to the scheduler's history.")  
-  (sig schedule-propagators (Fn [(Array Propagator)] ()))
+  (sig schedule-propagators (Fn [(Ref (Array Propagator))] ()))
   (defn schedule-propagators [propagators] 
-    (foreach [propagator &propagators] 
-      (do (insert &scheduled-propagators &propagator)
-          (insert &history &propagator))))
+    (foreach [propagator propagators] 
+      (do (insert &scheduled-propagators propagator)
+          (insert &history propagator))))
   
   (doc schedule-propagator 
     "Add a single propagator to the scheduler's array of propagators.
      Also adds the propagator to the scheduler's history.")  
-  (sig schedule-propagator (Fn [Propagator] ()))
+  (sig schedule-propagator (Fn [(Ref Propagator)] ()))
     (defn schedule-propagator [propagator] 
-    (do (insert &scheduled-propagators &propagator) 
-        (insert &history &propagator)))
+    (do (insert &scheduled-propagators propagator) 
+        (insert &history propagator)))
   
   (doc reschedule
     "Reschedule all the propagators in the scheduler's history.")
   (sig reschedule (Fn [] ()))
   (defn reschedule []
-    (Array.schedule history))
+    (schedule-propagators &history))
 
   (doc start "Initialize the scheduler.")
   (sig start (Fn [] ()))
   (defn start [] 
     (do (clear-schedule)
         (clear-history)
-        (set! last-value-of-run (State.Done))))
+        (set! last-value-of-run State.Done)))
 
   (doc run-scheduler "Run the scheduler.")
   (sig run-scheduler (Fn [] (State a)))
   (defn run-scheduler [] 
-    (do (if (propagators-alerted?) 
-            (set! last-value-of-run (run-alerted)))
+    (do (when (propagators-scheduled?) 
+              (set! last-value-of-run (run-alerted)))
       last-value-of-run))
 )
