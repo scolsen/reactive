@@ -1,22 +1,13 @@
 (defmodule Types
   (deftype Propagator [name String, callback (Fn [] ())])
 
-
   ;; Helper function to copy the name of a propagator
   ;; This is needed for functions like copy-map
   (doc copy-propagator-name "Helper function to copy a propagator name.")
   (defn copy-propagator-name [propagator] 
     @(Propagator.name propagator))
 
-  ;;(doc propagator-name "Get the name of a propagator. If the propagator is nil,
-  ;;returns the empty string.")
-  ;;(sig propagator-name (Fn [(Ref Propagator)] String))
-  ;;(defn propagator-name [p] 
-  ;;  (match @p
-  ;;    (Propagator.Propagator name _) name
-  ;;    (Propagator.Nil) @""))
-
   (deftype (Cell a t) 
     [content (Maybe a), 
-     propagators (Array Propagator)])
+    propagators (Array Propagator)])
 )
