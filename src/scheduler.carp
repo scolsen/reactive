@@ -11,14 +11,17 @@
 
 (defmodule Scheduler
 
-  (deftype (State a) 
-    (Done [])
-    (Value [a]))
+  (deftype State 
+    Done
+    Running)
 
   (def scheduled-propagators (the (Array Propagator) (zero)))
+  (defn get-scheduled-propagators [] @&scheduled-propagators)
   ;; all propagators ever scheduled during the scheduler's lifetime.
   (def history (the (Array Propagator) (zero))) 
-  (def last-value-of-run State.Done)
+  (defn get-history [] @&history)
+  (def last-value-of-run (State.Done))
+  (defn get-last-value-of-run [] @&last-value-of-run)
   
   (private propagators-scheduled?)
   (doc propagators-scheduled? "Returns true if any propagators have been alerted.")
@@ -41,29 +44,21 @@
   If the propagator is already a member of the array, do nothing.")
   (sig insert (Fn [(Ref (Array Propagator)) (Ref Propagator)] ()))
   (defn insert [propagators propagator]
-   (let [names (copy-map &propagator-name propagators)]  
-    (match @propagator 
-      (Propagator.Propagator name _) 
-        (when (Reactive-Util.member? &names &name) 
-              (push-back! propagators @propagator))       
-      (Propagator.Nil) ())))
+   (let [names (copy-map &copy-propagator-name propagators)]  
+      (when (Reactive-Util.member? &names (Propagator.name propagator)) 
+              (push-back! propagators @propagator))))
 
   (private run-alerted)
   (doc run-alerted "Run all of the alterted propagators.")
-  (sig run-alerted (Fn [] (State a)))
+  (sig run-alerted (Fn [] State))
   (defn run-alerted [] 
-      (do 
+      (let-do [ps @&scheduled-propagators]
         (clear-schedule)
-        (foreach [propagator &scheduled-propagators]
-          (do 
-            (ignore (match @propagator 
-              (Propagator.Propagator _ f) (f)
-              (Propagator.Nil) ()))
-            (set! scheduled-propagators (remove propagator
-            scheduled-propagators))))
+        (foreach [p &ps]
+            (~(Propagator.callback p))) 
         (if (propagators-scheduled?)
-            (run-alerted)
-            State.Done)))
+            (State.Running)
+            (State.Done))))
 
   ;;;; TODO: Implement an abortion mechanism.
   
@@ -95,12 +90,12 @@
   (defn start [] 
     (do (clear-schedule)
         (clear-history)
-        (set! last-value-of-run State.Done)))
+        (set! last-value-of-run (State.Done))))
 
   (doc run-scheduler "Run the scheduler.")
-  (sig run-scheduler (Fn [] (State a)))
+  (sig run-scheduler (Fn [] State))
   (defn run-scheduler [] 
     (do (when (propagators-scheduled?) 
               (set! last-value-of-run (run-alerted)))
-      last-value-of-run))
+      @&last-value-of-run))
 )
