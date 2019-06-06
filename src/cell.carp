@@ -6,37 +6,33 @@
 
 (defmodule Cell
   
-  (deftype (Cell a t) 
-    [content (Maybe a), 
-     propagators (Array (Fn [a] t))])
-  
   (sig content (Fn [(Ref (Cell a t))] (Maybe a)))
   (defn content [cell]
     @(Cell.content cell))
 
-  (sig propagators (Fn [(Ref (Cell a t))] (Array (Fn [a] t))))
+  (sig propagators (Fn [(Ref (Cell a t))] (Array Propagator)))
   (defn propagators [cell]
     @(Cell.propagators cell))
 
   (doc add-content "Update a Cell's contents.")
-  (sig add-content (Fn [(Ref (Cell a t)) (Maybe a)] ()))
+  (sig add-content (Fn [(Ref (Cell a t)) (Ref (Maybe a))] ()))
   (defn add-content [cell increment]
     (let [cell-val (Cell.content cell)]
-      (match increment
+      (match @increment
         (Nothing) ()
         (Just x) (if (nothing? cell-val) 
-                     (do (Cell.update-content cell (Just x)) 
-                         (Scheduler.schedule (Cell.propagators cell))) 
+                     (do (Scheduler.schedule-propagators (Cell.propagators cell))
+                         (Cell.set-content! cell (Just x))) 
                      (assert (= cell-val increment)))))) 
   
-  (doc "Add a propagator to a cell.")
-  (sig add-propagator (Fn [(Ref (Cell a t)) (Fn [a] t)] ()))
+  (doc add-propagator "Add a propagator to a cell.")
+  (sig add-propagator (Fn [(Ref (Cell a t)) (Ref Propagator)] ()))
   (defn add-propagator [cell propagator] 
-    (let [props (Cell.propagators cell)] 
-    (match (index-of props propagator) 
+    (let [props (propagators cell)] 
+    (match (index-of (Cell.propagators cell) propagator) 
         (Nothing) 
-          (do (Cell.update-propagators cell (push-back props propagator))
-              (Scheduler.schedule propagator))
+          (do (Cell.set-propagators! cell (push-back props @propagator))
+              (Scheduler.schedule-propagator propagator))
         (Just x) ())))
 
   (doc make-cell "Make a cell of a particular type.")
